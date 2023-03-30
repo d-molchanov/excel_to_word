@@ -7,10 +7,11 @@ import openpyxl
 from docx import Document
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.shared import Cm
+from docx.shared import Cm, Pt
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.section import WD_SECTION
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_ALIGN_VERTICAL
 
 def create_xlsx_file_list(target_dir):
 	result = []
@@ -108,6 +109,123 @@ def change_ext(filename, new_ext):
 # write_data(data[4:2000], [0, 4, 5], 'data/26_река_Нахавня_(Одинцовские г.о.)/Приложение 1.docx')
 # print('Writing data finished')
 
+def convert_data_to_str(data, formatting):
+	return [
+		[f.format(r).replace('.', ',') for r, f in 
+		zip(row, formatting)] for row in data
+	]
+
+def create_docx_document(content):
+	document = Document()
+
+	header = document.sections[0]
+	header.page_width = Cm(21)
+	header.page_height = Cm(29.7)
+	header.left_margin = Cm(3)
+	header.right_margin = Cm(1.5)
+	header.top_margin = Cm(2)
+	header.bottom_margin = Cm(2)
+	appendix_style = document.styles.add_style('Appendix Title', WD_STYLE_TYPE.PARAGRAPH)
+	appendix_style.paragraph_format.left_indent = Cm(11)
+	number_style = document.styles.add_style('Document Number', WD_STYLE_TYPE.PARAGRAPH)
+	number_style.paragraph_format.left_indent = Cm(10.5)
+	title_style = document.styles.add_style('Document Title', WD_STYLE_TYPE.PARAGRAPH)
+	subtitle_style = document.styles.add_style('Document Subtitle', WD_STYLE_TYPE.PARAGRAPH)
+	subtitle_style.paragraph_format.first_line_indent = Cm(1.25)
+
+	styles = [
+		appendix_style,
+		number_style,
+		title_style,
+		subtitle_style
+	]
+	alignments = [
+		WD_ALIGN_PARAGRAPH.LEFT,
+		WD_ALIGN_PARAGRAPH.LEFT,
+		WD_ALIGN_PARAGRAPH.CENTER,
+		WD_ALIGN_PARAGRAPH.JUSTIFY
+	]
+
+	for s, a, c in zip(styles, alignments, content):
+		s.font.name = 'Times New Roman'
+		s.font.size = Pt(13)
+		s.paragraph_format.line_spacing = 1.06
+		# s.paragraph_format.space_after = s.font.size
+		s.paragraph_format.space_after = Pt(0)
+		p = document.add_paragraph(style=s)
+		p.alignment = a
+		p.add_run(c)
+
+	title_style.paragraph_format.space_before = Pt(14)
+	title_style.font.size = Pt(14)
+	title_style.paragraph_format.space_after = Pt(14)
+	subtitle_style.paragraph_format.space_after = Pt(14)
+	subtitle_style.font.size = Pt(14)
+
+
+	# appendix_style.font.size = Pt(13)
+	# appendix_style.paragraph_format.line_spacing = 1.08
+	document.paragraphs[2].runs[0].bold = True
+
+	return document
+
+def add_table_title(table):
+	first_row_cells = table.add_row().cells
+	for c in first_row_cells:
+		c.paragraphs[0].style.font.name = 'Times New Roman'
+		c.paragraphs[0].style.font.size = Pt(12)
+
+	for i in range(2):
+		table.add_row()
+
+
+	cells = ((0, 0), (0, 1), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2))
+
+	text = [
+		'№\nп/п',
+		'Координаты\n(МСК-50, зона 2)',
+		'X',
+		'Y',
+		'(1)',
+		'(2)',
+		'(3)'
+	]
+
+	table.cell(0,0).merge(table.cell(1,0))
+	table.cell(0,1).merge(table.cell(0,2))
+	
+	table.cell(0,0).paragraphs[0].style.paragraph_format.space_before = Pt(6)
+	# table.cell(0,0).vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+	# table.cell(0,1).vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+
+	for c, t in zip(cells, text):
+		table.cell(*c).text = t
+		table.cell(*c).paragraphs[0].paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+		table.cell(*c).paragraphs[0].runs[0].bold = True
+	
+	return table
+
+def add_table(document, data):
+	table_section = document.add_section(WD_SECTION.CONTINUOUS)
+	sectPr = table_section._sectPr #table_section._sectPr
+	cols = sectPr.xpath('./w:cols')[0]
+	cols.set(qn('w:num'),'2')
+
+	table = document.add_table(rows=0, cols=len(data[0]), style='Table Grid')
+	table = add_table_title(table)
+	table.allow_autofit = False
+	table.columns[0].width = Cm(2)
+	for row in data:
+		cells = table.add_row().cells
+		for c, r in zip(cells, row):
+			c.text = r
+
+	footer_section = document.add_section(WD_SECTION.CONTINUOUS)
+	sectPr = footer_section._sectPr
+	cols = sectPr.xpath('./w:cols')[0]
+	cols.set(qn('w:num'),'1')		
+	return document
+
 if __name__ == '__main__':
 	# target_dir = './data/26_река_Нахавня_(Одинцовские г.о.)'
 	target_dir = './data/10_ручей_без_названия_(г.о. Егорьевск)'
@@ -116,10 +234,42 @@ if __name__ == '__main__':
 	for f in files[:1]:
 		print(f)
 		data = read_xlsx(f)
-		new_filename = change_ext(f, 'txt')
-		write_txt_file(extract_columns(data[4:], [4, 5]), new_filename, '\t')
-		new_filename = change_ext(f, 'docx')
-		write_data(data[4:], [0, 4, 5], new_filename)
+		# new_filename = change_ext(f, 'txt')
+		# write_txt_file(extract_columns(data[4:], [4, 5]), new_filename, '\t')
+		# new_filename = change_ext(f, 'docx')
+		# write_data(data[4:], [0, 4, 5], new_filename)
+
+		content = ['\n'.join([
+				'Приложение 2',
+				'к распоряжению',
+				'Министерства экологии',
+				'и природопользования',
+				'Московской области'
+			]),
+			'№______ от _____________',
+			'\n'.join([
+				'Границы водоохранной зоны, прибрежной защитной полосы',
+				'ручья без названия в Сергиево-Посадском городском округе Московской области'
+			]),
+			'\n'.join([
+				'Координаты границ водоохранной зоны, прибрежной защитной полосы ручья без названия в Сергиево-Посадском городском округе',
+				'Московской области.'
+			])
+
+		]
+
+		formatting = ['{:.0f}', '{:.2f}', '{:.2f}']
+
+		partial_data = extract_columns(data[4:], [0, 4, 5])
+		str_data = convert_data_to_str(partial_data, formatting)
+
+		filename = 'demo.docx'
+		document = create_docx_document(content)
+		document = add_table(document, str_data)
+		try:
+			document.save(filename)
+		except PermissionError:
+			print(f'<{filename}> is busy - permission denied.')
 	# filename = files[0]
 	# data = read_xlsx(filename)
 	# print(len(data))
