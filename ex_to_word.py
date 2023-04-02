@@ -177,7 +177,7 @@ def create_docx_document(content):
 
 	return document
 
-def add_table_title(table):
+def add_table_title(table, koord_zone):
 	first_row_cells = table.add_row().cells
 	for c in first_row_cells:
 		c.paragraphs[0].style.font.name = 'Times New Roman'
@@ -191,7 +191,7 @@ def add_table_title(table):
 
 	text = [
 		'№\nп/п',
-		'Координаты\n(МСК-50, зона 2)',
+		koord_zone,
 		'X',
 		'Y',
 		'(1)',
@@ -202,31 +202,53 @@ def add_table_title(table):
 	table.cell(0,0).merge(table.cell(1,0))
 	table.cell(0,1).merge(table.cell(0,2))
 	
-	table.cell(0,0).paragraphs[0].style.paragraph_format.space_before = Pt(6)
-	# table.cell(0,0).vertical_alignment = WD_ALIGN_VERTICAL.CENTER
-	# table.cell(0,1).vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+
+
+	# table.cell(0,0).paragraphs[0].style.paragraph_format.space_before = Pt(12)
+	# table.cell(0,1).paragraphs[0].style.paragraph_format.space_before = Pt(6)
+	# table.cell(0,1).paragraphs[0].style.paragraph_format.space_after = Pt(6)
+	# table.cell(1,1).paragraphs[0].style.paragraph_format.space_before = Pt(0)
+	# table.cell(1,1).paragraphs[0].style.paragraph_format.space_after = Pt(0)
+	# table.cell(1,2).paragraphs[0].style.paragraph_format.space_before = Pt(0)
+	# table.cell(1,2).paragraphs[0].style.paragraph_format.space_after = Pt(0)
+	# table.cell(2,0).paragraphs[0].style.paragraph_format.space_before = Pt(0)
+	# table.cell(2,0).paragraphs[0].style.paragraph_format.space_after = Pt(0)
+	# table.cell(2,1).paragraphs[0].style.paragraph_format.space_before = Pt(0)
+	# table.cell(2,1).paragraphs[0].style.paragraph_format.space_after = Pt(0)
+	# table.cell(2,2).paragraphs[0].style.paragraph_format.space_before = Pt(0)
+	# table.cell(2,2).paragraphs[0].style.paragraph_format.space_after = Pt(0)
+	
+	table.cell(0,0).vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+	table.cell(0,1).vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+	table.rows[0].height = Cm(1.96)
 
 	for c, t in zip(cells, text):
 		table.cell(*c).text = t
 		table.cell(*c).paragraphs[0].paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
 		table.cell(*c).paragraphs[0].runs[0].bold = True
 	
+	# print('cell(0,0)', table.cell(0,0).paragraphs[0].style.paragraph_format.space_before)
+	# print('cell(1,0)', table.cell(1,0).paragraphs[0].style.paragraph_format.space_before)
+	# print('cell(0,1)', table.cell(0,1).paragraphs[0].style.paragraph_format.space_before)
+	# print('cell(0,2)', table.cell(0,2).paragraphs[0].style.paragraph_format.space_before)
+
 	return table
 
-def add_table(document, data):
+def add_table(document, data, koord_zone):
 	table_section = document.add_section(WD_SECTION.CONTINUOUS)
 	sectPr = table_section._sectPr #table_section._sectPr
 	cols = sectPr.xpath('./w:cols')[0]
 	cols.set(qn('w:num'),'2')
 
 	table = document.add_table(rows=0, cols=len(data[0]), style='Table Grid')
-	table = add_table_title(table)
+	table = add_table_title(table, koord_zone)
 	table.allow_autofit = False
 	table.columns[0].width = Cm(2)
 	for row in data:
 		cells = table.add_row().cells
 		for c, r in zip(cells, row):
 			c.text = r
+			c.paragraphs[0].paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
 	footer_section = document.add_section(WD_SECTION.CONTINUOUS)
 	sectPr = footer_section._sectPr
@@ -269,13 +291,17 @@ def process_directory(dir_dict):
 	xlsx_files = [f for f in list_of_files if splitext(f)[1] == '.xlsx']
 	xlsx_files.sort()
 	xlsx_data = []
+	koord_zone = []
 	for f in xlsx_files:
 		time_start = perf_counter()
 		print(f'Start reading <{f}>.')
 		data = read_xlsx(join(target_dir, f))
 		xlsx_data.append(data)
+		koord_zone.append(data[1][4])
 		print(f'{len(data)} rows has been read in {round((perf_counter() - time_start)*1e3, 3)} ms.')
 	partial_data = [extract_columns(el[4:], [0, 4, 5]) for el in xlsx_data]
+	if partial_data[1] == partial_data[2]:
+		print('\nWARNING: appendix 2 equals to appendix 3!\n')
 	formatting = ['{:.0f}', '{:.2f}', '{:.2f}']
 	str_data = [convert_data_to_str(el, formatting) for el in partial_data]
 	print('Start creating txt files.')
@@ -306,12 +332,12 @@ def process_directory(dir_dict):
 			'Границы прибрежной защитной полосы',
 			'{}'
 		]),
-		'Координаты местоположения береговой линии (границы водного объекта) {}',
-		'Координаты границ водоохранной зоны {}',
-		'Координаты прибрежной защитной полосы {}'
+		'Координаты местоположения береговой линии (границы водного объекта) {}.',
+		'Координаты границ водоохранной зоны {}.',
+		'Координаты прибрежной защитной полосы {}.'
 	]
 
-	for f, d in zip(xlsx_files, str_data):
+	for f, d, k_z in zip(xlsx_files, str_data, koord_zone):
 		time_start = perf_counter()
 		appendix_number = f[-6]
 		insert_content = None
@@ -328,7 +354,7 @@ def process_directory(dir_dict):
 
 		new_filename = change_ext(f, 'docx')
 		document = create_docx_document(insert_content)
-		document = add_table(document, d)
+		document = add_table(document, d, k_z)
 		try:
 			document.save(join(target_dir, new_filename))
 			print(f'<{new_filename}> has been created in {round((perf_counter() - time_start)*1e3, 3)} ms.')
@@ -338,7 +364,16 @@ def process_directory(dir_dict):
 
 if __name__ == '__main__':
 	# target_dir = './data/26_река_Нахавня_(Одинцовские г.о.)'
-	target_dir = './data/10_ручей_без_названия_(г.о. Егорьевск)'
+	# target_dir = './data/10_ручей_без_названия_(г.о. Егорьевск)'
+	# target_dir = './data/(2023_04_02)/6_река_Вьюница_(г.о. Шатура)'
+	target_dir = './data/(2023_04_02)/13_река_Шатуха_(Наро-Фоминский г.о., Рузский г.о.)'
+	# target_dir = './data/(2023_04_02)/6_река_Вьюница_(г.о. Шатура)'
+	# target_dir = './data/(2023_04_02)/6_река_Вьюница_(г.о. Шатура)'
+	# target_dir = './data/(2023_04_02)/6_река_Вьюница_(г.о. Шатура)'
+	# target_dir = './data/(2023_04_02)/6_река_Вьюница_(г.о. Шатура)'
+	# target_dir = './data/(2023_04_02)/6_река_Вьюница_(г.о. Шатура)'
+	# target_dir = './data/(2023_04_02)/37_ручей_без_названия_(г.о. Домодедово)'
+
 	
 	filenames = [
 		'Приложение 1.xlsx',
