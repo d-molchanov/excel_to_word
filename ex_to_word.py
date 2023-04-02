@@ -302,6 +302,11 @@ def process_directory(dir_dict):
 	partial_data = [extract_columns(el[4:], [0, 4, 5]) for el in xlsx_data]
 	if partial_data[1] == partial_data[2]:
 		print('\nWARNING: appendix 2 equals to appendix 3!\n')
+		try:
+			with open(join(target_dir, '!App2_equal_App3'), 'w') as f:
+				f.write('')
+		except IOError:
+			print('Cannot create <!App2_equal_App3>.')
 	formatting = ['{:.0f}', '{:.2f}', '{:.2f}']
 	str_data = [convert_data_to_str(el, formatting) for el in partial_data]
 	print('Start creating txt files.')
@@ -364,15 +369,19 @@ def process_directory(dir_dict):
 
 if __name__ == '__main__':
 	# target_dir = './data/26_река_Нахавня_(Одинцовские г.о.)'
-	# target_dir = './data/10_ручей_без_названия_(г.о. Егорьевск)'
+	target_dir = './data/10_ручей_без_названия_(г.о. Егорьевск)'
 	# target_dir = './data/(2023_04_02)/6_река_Вьюница_(г.о. Шатура)'
-	target_dir = './data/(2023_04_02)/13_река_Шатуха_(Наро-Фоминский г.о., Рузский г.о.)'
-	# target_dir = './data/(2023_04_02)/6_река_Вьюница_(г.о. Шатура)'
-	# target_dir = './data/(2023_04_02)/6_река_Вьюница_(г.о. Шатура)'
-	# target_dir = './data/(2023_04_02)/6_река_Вьюница_(г.о. Шатура)'
-	# target_dir = './data/(2023_04_02)/6_река_Вьюница_(г.о. Шатура)'
-	# target_dir = './data/(2023_04_02)/6_река_Вьюница_(г.о. Шатура)'
+	# target_dir = './data/(2023_04_02)/13_река_Шатуха_(Наро-Фоминский г.о., Рузский г.о.)'
+	# target_dir = './data/(2023_04_02)/16_река_Сумерь_(г.о. Пушкинский, Сергиево-Посадский г.о.)'
+	# target_dir = './data/(2023_04_02)/26_река_Нахавня_(Одинцовские г.о.)'
+	# target_dir = './data/(2023_04_02)/33_река_Малые_Вяземы_(Одинцовский г.о.)'
+	# target_dir = './data/(2023_04_02)/34_ручей_без_названия_(г.о. Домодедово)'
 	# target_dir = './data/(2023_04_02)/37_ручей_без_названия_(г.о. Домодедово)'
+	# target_dir = './data/(2023_04_02)/42_река_Беляна_(Одинцовский г.о., г.о. Истра)'
+	# target_dir = './data/(2023_04_02)/44_река_Жданка_(Раменский г.о., г.о. Домодедово)'
+	# target_dir = './data/(2023_04_02)/46_река_Лубянка_(г.о. Ступино)'
+	# target_dir = './data/(2023_04_02)/49_река_Камариха_(г.о. Пушкинский, Дмитровский г.о.)'
+	# target_dir = './data/(2023_04_02)/50_река_Вырка_(Орехово-Зуевский г.о.)'
 
 	
 	filenames = [
