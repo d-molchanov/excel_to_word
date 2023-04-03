@@ -110,12 +110,7 @@ def write_txt_file(data, filename, sep):
 def change_ext(filename, new_ext):
 	name, ext = splitext(filename)
 	return f'{name}.{new_ext}'
-# print('Start reading data.')
-# data = read_xlsx('data/26_река_Нахавня_(Одинцовские г.о.)/Приложение 1.xlsx')
-# print('Reading data finished. Start writing data')
-# # write_data_new(data[4:200], [0, 4, 5], 'data/26_река_Нахавня_(Одинцовские г.о.)/Приложение 1.docx')
-# write_data(data[4:2000], [0, 4, 5], 'data/26_река_Нахавня_(Одинцовские г.о.)/Приложение 1.docx')
-# print('Writing data finished')
+
 
 def convert_data_to_str(data, formatting):
 	return [
@@ -203,21 +198,6 @@ def add_table_title(table, koord_zone):
 	table.cell(0,1).merge(table.cell(0,2))
 	
 
-
-	# table.cell(0,0).paragraphs[0].style.paragraph_format.space_before = Pt(12)
-	# table.cell(0,1).paragraphs[0].style.paragraph_format.space_before = Pt(6)
-	# table.cell(0,1).paragraphs[0].style.paragraph_format.space_after = Pt(6)
-	# table.cell(1,1).paragraphs[0].style.paragraph_format.space_before = Pt(0)
-	# table.cell(1,1).paragraphs[0].style.paragraph_format.space_after = Pt(0)
-	# table.cell(1,2).paragraphs[0].style.paragraph_format.space_before = Pt(0)
-	# table.cell(1,2).paragraphs[0].style.paragraph_format.space_after = Pt(0)
-	# table.cell(2,0).paragraphs[0].style.paragraph_format.space_before = Pt(0)
-	# table.cell(2,0).paragraphs[0].style.paragraph_format.space_after = Pt(0)
-	# table.cell(2,1).paragraphs[0].style.paragraph_format.space_before = Pt(0)
-	# table.cell(2,1).paragraphs[0].style.paragraph_format.space_after = Pt(0)
-	# table.cell(2,2).paragraphs[0].style.paragraph_format.space_before = Pt(0)
-	# table.cell(2,2).paragraphs[0].style.paragraph_format.space_after = Pt(0)
-	
 	table.cell(0,0).vertical_alignment = WD_ALIGN_VERTICAL.CENTER
 	table.cell(0,1).vertical_alignment = WD_ALIGN_VERTICAL.CENTER
 	table.rows[0].height = Cm(1.96)
@@ -226,11 +206,6 @@ def add_table_title(table, koord_zone):
 		table.cell(*c).text = t
 		table.cell(*c).paragraphs[0].paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
 		table.cell(*c).paragraphs[0].runs[0].bold = True
-	
-	# print('cell(0,0)', table.cell(0,0).paragraphs[0].style.paragraph_format.space_before)
-	# print('cell(1,0)', table.cell(1,0).paragraphs[0].style.paragraph_format.space_before)
-	# print('cell(0,1)', table.cell(0,1).paragraphs[0].style.paragraph_format.space_before)
-	# print('cell(0,2)', table.cell(0,2).paragraphs[0].style.paragraph_format.space_before)
 
 	return table
 
@@ -256,6 +231,55 @@ def add_table(document, data, koord_zone):
 	cols.set(qn('w:num'),'1')		
 	return document
 
+def add_table_new(document, data, koord_zone):
+	table_section = document.add_section(WD_SECTION.CONTINUOUS)
+	sectPr = table_section._sectPr
+	cols = sectPr.xpath('./w:cols')[0]
+	cols.set(qn('w:num'),'2')
+
+	h = len(data)
+	w = len(data[0])
+
+	table = document.add_table(rows=h+3, cols=w, style='Table Grid')
+	cells = table._cells
+
+	cells[0].merge(cells[3])
+	cells[1].merge(cells[2])
+
+	head = [
+		'№\nп/п',
+		koord_zone,
+		'X',
+		'Y',
+		'(1)',
+		'(2)',
+		'(3)'
+	]
+
+	head_cells = [0, 1, 4, 5, 6, 7, 8]
+
+	for t, c in zip(head, [cells[el] for el in head_cells]):
+		c.text = t
+		c.paragraphs[0].paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+		c.paragraphs[0].runs[0].bold = True
+
+
+	cells[0].vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+	cells[1].vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+	table.rows[0].height = Cm(1.96)
+
+	# table.allow_autofit = False
+	table.columns[0].width = Cm(2)
+	for i, c in enumerate(cells[9:]):
+		c.text = data[i//w][i%w]
+		c.paragraphs[0].paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+	footer_section = document.add_section(WD_SECTION.CONTINUOUS)
+	sectPr = footer_section._sectPr
+	cols = sectPr.xpath('./w:cols')[0]
+	cols.set(qn('w:num'),'1')		
+	return document
+
 def scan_directory(target_dir, filenames):
 	result = dict()
 	for root, dirs, files in walk(target_dir):
@@ -274,7 +298,7 @@ def write_txtfile(data, filename, sep):
 
 def read_txtfile(filename):
 	try:
-		with open(filename, 'r') as f:
+		with open(filename, 'r', encoding='utf-8') as f:
 			return [line.rstrip() for line in f.readlines()]
 	except IOError:
 		print(f'I/O error with <{filename}>.')
@@ -359,7 +383,7 @@ def process_directory(dir_dict):
 
 		new_filename = change_ext(f, 'docx')
 		document = create_docx_document(insert_content)
-		document = add_table(document, d, k_z)
+		document = add_table_new(document, d, k_z)
 		try:
 			document.save(join(target_dir, new_filename))
 			print(f'<{new_filename}> has been created in {round((perf_counter() - time_start)*1e3, 3)} ms.')
