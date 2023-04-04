@@ -390,6 +390,71 @@ def process_directory(dir_dict):
 		except PermissionError:
 			print(f'<{new_filename}> is busy - permission denied.')
 
+def create_directive(filename):
+	data = []
+	try:
+		with open(filename, 'r') as f:
+			data = f.readlines()
+	except IOError:
+		print(f'I/O error with <{filename}>.')
+	document = Document()
+	header = document.sections[0]
+	header.page_width = Cm(21)
+	header.page_height = Cm(29.7)
+	header.left_margin = Cm(3)
+	header.right_margin = Cm(1.5)
+	header.top_margin = Cm(2)
+	header.bottom_margin = Cm(2)
+	title_style = document.styles.add_style('Directive Title', WD_STYLE_TYPE.PARAGRAPH)
+	title_style.font.size = Pt(14)
+	title_style.font.name = 'Times New Roman'
+	title_style.paragraph_format.line_spacing = 1
+	title_style.paragraph_format.space_before = Pt(238)
+	title_style.paragraph_format.space_after = Pt(42)
+	directive_style = document.styles.add_style('Directive Text', WD_STYLE_TYPE.PARAGRAPH)
+	directive_style.font.size = Pt(14)
+	directive_style.font.name = 'Times New Roman'
+	directive_style.paragraph_format.line_spacing = 1.15
+	directive_style.paragraph_format.space_before = Pt(0)
+	directive_style.paragraph_format.space_after = Pt(0)
+	directive_style.paragraph_format.first_line_indent = Cm(1.25)
+	position_style = document.styles.add_style('Directive Position', WD_STYLE_TYPE.PARAGRAPH)
+	position_style.font.size = Pt(14)
+	position_style.font.name = 'Times New Roman'
+	position_style.paragraph_format.line_spacing = 1.15
+	position_style.paragraph_format.space_before = Pt(0)
+	position_style.paragraph_format.space_after = Pt(0)
+	name_style = document.styles.add_style('Directive Name', WD_STYLE_TYPE.PARAGRAPH)
+	name_style.font.size = Pt(14)
+	name_style.font.name = 'Times New Roman'
+	name_style.paragraph_format.line_spacing = 1.15
+	name_style.paragraph_format.space_before = Pt(0)
+	name_style.paragraph_format.space_after = Pt(0)
+
+	for el in data[:-4]:
+		p = document.add_paragraph(el.rstrip(), style=directive_style)
+	document.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+	document.paragraphs[0].style = title_style
+	document.paragraphs[0].runs[0].bold = True
+	for p in document.paragraphs[1:]:
+		p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+	for i in range(3):
+		document.add_paragraph()
+	table = document.add_table(rows=1, cols=2)
+	cells = table._cells
+	cells[0].vertical_alignment = WD_ALIGN_VERTICAL.BOTTOM
+	cells[1].vertical_alignment = WD_ALIGN_VERTICAL.BOTTOM
+	cells[0].text = '\n'.join([el.rstrip() for el in data[-4:-1]])
+	cells[0].paragraphs[0].style = position_style
+	cells[0].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
+	cells[1].text = data[-1]
+	cells[1].paragraphs[0].style = name_style
+	cells[1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+
+
+	# table.columns[0].width = Cm(7.25)
+	document.save('directive.docx')
+
 
 if __name__ == '__main__':
 	# target_dir = './data/26_река_Нахавня_(Одинцовские г.о.)'
@@ -407,53 +472,13 @@ if __name__ == '__main__':
 	# target_dir = './data/(2023_04_02)/49_река_Камариха_(г.о. Пушкинский, Дмитровский г.о.)'
 	# target_dir = './data/(2023_04_02)/50_река_Вырка_(Орехово-Зуевский г.о.)'
 
-	
+	create_directive('directive_template.txt')
 	filenames = [
 		'Приложение 1.xlsx',
 		'Приложение 2.xlsx',
 		'Приложение 3.xlsx',
 		'content.txt'
 	]
-	test = scan_directory(target_dir, filenames)
-	
-	process_directory(test)
 
-	# files = create_xlsx_file_list(target_dir)
-	# print(f'List of xlsx files in <{abspath(target_dir)}>:')
-	# for f in files[:1]:
-	# 	print(f)
-	# 	data = read_xlsx(f)
-		
-
-	# 	content = ['\n'.join([
-	# 			'Приложение 2',
-	# 			'к распоряжению',
-	# 			'Министерства экологии',
-	# 			'и природопользования',
-	# 			'Московской области'
-	# 		]),
-	# 		'№______ от _____________',
-	# 		'\n'.join([
-	# 			'Границы водоохранной зоны, прибрежной защитной полосы',
-	# 			'ручья без названия в Сергиево-Посадском городском округе Московской области'
-	# 		]),
-	# 		'\n'.join([
-	# 			'Координаты границ водоохранной зоны, прибрежной защитной полосы ручья без названия в Сергиево-Посадском городском округе',
-	# 			'Московской области.'
-	# 		])
-
-	# 	]
-
-	# 	formatting = ['{:.0f}', '{:.2f}', '{:.2f}']
-
-	# 	partial_data = extract_columns(data[4:], [0, 4, 5])
-	# 	str_data = convert_data_to_str(partial_data, formatting)
-
-	# 	filename = 'demo.docx'
-	# 	document = create_docx_document(content)
-	# 	document = add_table(document, str_data)
-	# 	try:
-	# 		document.save(filename)
-	# 	except PermissionError:
-	# 		print(f'<{filename}> is busy - permission denied.')
-
+	# test = scan_directory(target_dir, filenames)
+	# process_directory(test)
