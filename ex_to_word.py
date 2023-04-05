@@ -456,18 +456,39 @@ def create_directive(directive_template, output_file, substitution):
 		position_style, name_style
 	] = set_directive_styles(document)
 
+	water_object = substitution[0]
+	district_name = substitution[1]
+	appendix_number = substitution[2]
+	water_object_length = substitution[3]
+	water_protection_zone = substitution[4]
+	protected_shoreline_belt = substitution[5]
+
+	subst_templ = {
+		'{WO}': water_object,
+		'{DN}': district_name,
+		'{AN}': appendix_number,
+		'{WOL}': water_object_length,
+		'{WPZ}': water_protection_zone,
+		'{PSB}': protected_shoreline_belt
+	}
+
 	data = read_textfile(directive_template)
 	if data:
 		for line in data[:-4]:
 			p = document.add_paragraph(style=main_style)
-			p.add_run(line.format(
-				NBS=chr(160), WO=substitution[0], 
-				DN=substitution[1], AN=substitution[2], 
-				WOL=substitution[3], WPZ=substitution[4], 
-				PSB=substitution[5])) 
+			subline = split_string(line, subst_templ)
+			for s in subline:
+				 if s in subst_templ:
+				 	text = subst_templ[s]
+				 	if text:
+				 		p.add_run(text)
+				 	else:
+				 		r = p.add_run(s)
+				 		r.font.highlight_color = WD_COLOR_INDEX.RED
+				 else:
+				 	p.add_run(s.format(NBS=chr(160)))
 
 		document.paragraphs[0].style = title_style
-		# document.paragraphs[0].style.font.highlight_color = WD_COLOR_INDEX.RED
 		for i in range(3):
 			document.add_paragraph(style=main_style)
 		
@@ -485,6 +506,31 @@ def create_directive(directive_template, output_file, substitution):
 		
 	else:
 		print(f'<{directive_template}> is empty.')
+
+def find_all_substring_indices(string, substring):
+	i = 0
+	result = []
+	while True:
+		i = string.find(substring, i)
+		if i == -1:
+			break
+		result.append(i)
+		i+=len(substring)
+		result.append(i)
+	return result
+
+def split_string(string, substrings):
+	indices = [0]
+	for s in substrings:
+		indices += find_all_substring_indices(string, s)
+	indices.sort()
+	if indices[-1] != len(string) - 1:
+		indices.append(len(string) - 1)
+	result = []
+	for i, j in zip(indices[1:], indices[:-1]):
+		result.append(string[j:i])
+	return result
+
 
 if __name__ == '__main__':
 	# target_dir = './data/26_река_Нахавня_(Одинцовские г.о.)'
@@ -513,6 +559,7 @@ if __name__ == '__main__':
 	]
 
 	create_directive('directive_template.txt', 'directive.docx', substitution)
+
 	filenames = [
 		'Приложение 1.xlsx',
 		'Приложение 2.xlsx',
@@ -522,3 +569,11 @@ if __name__ == '__main__':
 
 	# test = scan_directory(target_dir, filenames)
 	# process_directory(test)
+	
+	# string = 'Hello{0}world{1}!{0}My{0}name{2}is{1}Dima{0}. I am fine.'
+	# substring = '{0}'
+	# substrings = ['{0}', '{1}', '{2}', '{3}']
+	# subs = find_all_substring_indices(string, substring)
+
+	# print(string, '\t', len(string))
+	# a = split_string(string, substrings)
