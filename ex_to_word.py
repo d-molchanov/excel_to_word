@@ -10,7 +10,7 @@ from docx.oxml.ns import qn
 from docx.shared import Cm, Pt
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.section import WD_SECTION
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
 from docx.enum.table import WD_ALIGN_VERTICAL
 
 def create_xlsx_file_list(target_dir):
@@ -296,7 +296,7 @@ def write_txtfile(data, filename, sep):
 	except IOError:
 		print(f'I/O error with <{filename}>.')
 
-def read_txtfile(filename):
+def read_textfile(filename):
 	try:
 		with open(filename, 'r', encoding='utf-8') as f:
 			return [line.rstrip() for line in f.readlines()]
@@ -311,7 +311,7 @@ def process_directory(dir_dict):
 	for i, f in enumerate(list_of_files, 1):
 		print(f'{i}\t{f}')
 	if 'content.txt' in list_of_files:
-		content_txt = read_txtfile(join(target_dir, 'content.txt'))
+		content_txt = read_textfile(join(target_dir, 'content.txt'))
 	xlsx_files = [f for f in list_of_files if splitext(f)[1] == '.xlsx']
 	xlsx_files.sort()
 	xlsx_data = []
@@ -390,14 +390,7 @@ def process_directory(dir_dict):
 		except PermissionError:
 			print(f'<{new_filename}> is busy - permission denied.')
 
-def create_directive(filename):
-	data = []
-	try:
-		with open(filename, 'r') as f:
-			data = f.readlines()
-	except IOError:
-		print(f'I/O error with <{filename}>.')
-	document = Document()
+def set_page_properties(document):
 	header = document.sections[0]
 	header.page_width = Cm(21)
 	header.page_height = Cm(29.7)
@@ -405,56 +398,93 @@ def create_directive(filename):
 	header.right_margin = Cm(1.5)
 	header.top_margin = Cm(2)
 	header.bottom_margin = Cm(2)
-	title_style = document.styles.add_style('Directive Title', WD_STYLE_TYPE.PARAGRAPH)
-	title_style.font.size = Pt(14)
-	title_style.font.name = 'Times New Roman'
-	title_style.paragraph_format.line_spacing = 1
-	title_style.paragraph_format.space_before = Pt(238)
-	title_style.paragraph_format.space_after = Pt(42)
-	directive_style = document.styles.add_style('Directive Text', WD_STYLE_TYPE.PARAGRAPH)
-	directive_style.font.size = Pt(14)
-	directive_style.font.name = 'Times New Roman'
-	directive_style.paragraph_format.line_spacing = 1.15
-	directive_style.paragraph_format.space_before = Pt(0)
-	directive_style.paragraph_format.space_after = Pt(0)
-	directive_style.paragraph_format.first_line_indent = Cm(1.25)
-	position_style = document.styles.add_style('Directive Position', WD_STYLE_TYPE.PARAGRAPH)
-	position_style.font.size = Pt(14)
-	position_style.font.name = 'Times New Roman'
-	position_style.paragraph_format.line_spacing = 1.15
-	position_style.paragraph_format.space_before = Pt(0)
-	position_style.paragraph_format.space_after = Pt(0)
-	name_style = document.styles.add_style('Directive Name', WD_STYLE_TYPE.PARAGRAPH)
-	name_style.font.size = Pt(14)
-	name_style.font.name = 'Times New Roman'
-	name_style.paragraph_format.line_spacing = 1.15
-	name_style.paragraph_format.space_before = Pt(0)
-	name_style.paragraph_format.space_after = Pt(0)
 
-	for el in data[:-4]:
-		p = document.add_paragraph(el.rstrip(), style=directive_style)
-	document.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-	document.paragraphs[0].style = title_style
-	document.paragraphs[0].runs[0].bold = True
-	for p in document.paragraphs[1:]:
-		p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-	for i in range(3):
-		document.add_paragraph()
+def set_directive_styles(document):
+	main_style = document.styles.add_style(
+		'Directive Text', WD_STYLE_TYPE.PARAGRAPH)
+	main_style.next_paragraph_style = main_style
+	main_style.font.size = Pt(14)
+	main_style.font.name = 'Times New Roman'
+	p_f = main_style.paragraph_format
+	p_f.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+	p_f.first_line_indent = Cm(1.25)
+	p_f.line_spacing = 1.15
+	p_f.space_before = Pt(0)
+	p_f.space_after = Pt(0)
+
+	title_style = document.styles.add_style(
+		'Directive Title', WD_STYLE_TYPE.PARAGRAPH)
+	title_style.base_style = main_style
+	title_style.next_paragraph_style = main_style
+	title_style.font.bold = True
+	p_f = title_style.paragraph_format
+	p_f.alignment = WD_ALIGN_PARAGRAPH.CENTER
+	p_f.line_spacing = 1
+	p_f.space_before = Pt(238)
+	p_f.space_after = Pt(42)
+
+	position_style = document.styles.add_style(
+		'Directive Position', WD_STYLE_TYPE.PARAGRAPH)
+	position_style.base_style = main_style
+	p_f = position_style.paragraph_format
+	p_f.first_line_indent = Cm(0)
+	p_f.alignment = WD_ALIGN_PARAGRAPH.LEFT
+
+
+	name_style = document.styles.add_style(
+		'Directive Name', WD_STYLE_TYPE.PARAGRAPH)
+	name_style.base_style = main_style
+	p_f = name_style.paragraph_format
+	p_f.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+
+	return [title_style, main_style, position_style, name_style]
+
+def create_position_table(document, data, styles):
 	table = document.add_table(rows=1, cols=2)
 	cells = table._cells
-	cells[0].vertical_alignment = WD_ALIGN_VERTICAL.BOTTOM
-	cells[1].vertical_alignment = WD_ALIGN_VERTICAL.BOTTOM
-	cells[0].text = '\n'.join([el.rstrip() for el in data[-4:-1]])
-	cells[0].paragraphs[0].style = position_style
-	cells[0].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
-	cells[1].text = data[-1]
-	cells[1].paragraphs[0].style = name_style
-	cells[1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+	for d, s, c in zip(data, styles, cells):
+		c.text = d
+		c.vertical_alignment = WD_ALIGN_VERTICAL.BOTTOM
+		c.paragraphs[0].style = s
 
+def create_directive(directive_template, output_file, substitution):
+	document = Document()
+	set_page_properties(document)
+	
+	[
+		title_style, main_style,
+		position_style, name_style
+	] = set_directive_styles(document)
 
-	# table.columns[0].width = Cm(7.25)
-	document.save('directive.docx')
+	data = read_textfile(directive_template)
+	if data:
+		for line in data[:-4]:
+			p = document.add_paragraph(style=main_style)
+			p.add_run(line.format(
+				NBS=chr(160), WO=substitution[0], 
+				DN=substitution[1], AN=substitution[2], 
+				WOL=substitution[3], WPZ=substitution[4], 
+				PSB=substitution[5])) 
 
+		document.paragraphs[0].style = title_style
+		# document.paragraphs[0].style.font.highlight_color = WD_COLOR_INDEX.RED
+		for i in range(3):
+			document.add_paragraph(style=main_style)
+		
+		position = '\n'.join(data[-4:-1])
+		name = data[-1]
+
+		create_position_table(
+			document, [position, name],
+			[position_style, name_style])
+		
+		try:
+			document.save(output_file)
+		except PermissionError:
+			print(f'<{output_file}> is busy - permission denied.')
+		
+	else:
+		print(f'<{directive_template}> is empty.')
 
 if __name__ == '__main__':
 	# target_dir = './data/26_река_Нахавня_(Одинцовские г.о.)'
@@ -472,7 +502,17 @@ if __name__ == '__main__':
 	# target_dir = './data/(2023_04_02)/49_река_Камариха_(г.о. Пушкинский, Дмитровский г.о.)'
 	# target_dir = './data/(2023_04_02)/50_река_Вырка_(Орехово-Зуевский г.о.)'
 
-	create_directive('directive_template.txt')
+	substitution = [
+		'реки Плесенки в{}Наро-Фоминском городском округе'.format(chr(160)),
+		'Наро-Фоминского городского округа',
+		'3',
+		'35,51',
+		'100',
+		'40'
+		# None
+	]
+
+	create_directive('directive_template.txt', 'directive.docx', substitution)
 	filenames = [
 		'Приложение 1.xlsx',
 		'Приложение 2.xlsx',
