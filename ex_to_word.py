@@ -531,17 +531,32 @@ def split_string(string, substrings):
 		result.append(string[j:i])
 	return result
 
-def create_appendix_body(template_data, substitution, appendix_number):
-	list_data = [
-		'\n'.join(template_data[:5]),
-		template_data[5],
-		'\n'.join(template_data[6:9]),
-		'\n'.join(template_data[9:12]),
-		'\n'.join(template_data[12:15]),
-		template_data[15],
-		template_data[16],
-		template_data[17]
+#!Rewrite with list comprehension
+def create_document_framework(template_data, indices, separators):
+	result = []
+	for i, j, s in zip(indices[:-1], indices[1:], separators):
+		result.append(s.join(template_data[i:j]))
+	return result
+
+def create_appendix_content(framework, substitution, appendix_number):
+	indices = []
+	if appendix_number == '1':
+		indices += [2, 6]
+	elif appendix_number == '2':
+		indices += [3, 7]
+	elif appendix_number == '3':
+		indices += [4, 8]
+	else:
+		indices += [5, 9]
+		appendix_number = '2'
+	result = [
+		framework[0].format(appendix_number),
+		framework[1]
 	]
+	for i in indices:
+		result.append(framework[i].format(substitution))
+	return result
+
 
 	document = Document()
 	set_page_properties(document)
@@ -586,7 +601,15 @@ if __name__ == '__main__':
 
 	appendix_template = 'appendix_template.txt'
 	appendix_content = read_textfile(appendix_template)
-	create_appendix_body(appendix_content, substitution, 1)
+	appendix_framework = create_document_framework(
+		appendix_content,
+		[0, 5, 6, 9, 12, 15, 18, 19, 20, 21, 22],
+		['\n', '', '\n', '\n', '\n', '\n', '', '', '', '']
+	)
+	print(*create_appendix_content(appendix_framework, 'WaterObject', '23'), sep='\n---------------\n')
+	# print(*appendix_framework, sep='\n---------------\n')
+
+	# create_appendix_body(appendix_content, substitution, 1)
 	dir_content = scan_directory(target_dir, filenames)
 	for k, v in dir_content.items():
 		print(f'{k}:\t{v}')
