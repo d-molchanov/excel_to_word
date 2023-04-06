@@ -531,6 +531,23 @@ def split_string(string, substrings):
 		result.append(string[j:i])
 	return result
 
+def create_appendix_body(template_data, substitution, appendix_number):
+	list_data = [
+		'\n'.join(template_data[:5]),
+		template_data[5],
+		'\n'.join(template_data[6:9]),
+		'\n'.join(template_data[9:12]),
+		'\n'.join(template_data[12:15]),
+		template_data[15],
+		template_data[16],
+		template_data[17]
+	]
+
+	document = Document()
+	set_page_properties(document)
+
+
+	return document
 
 if __name__ == '__main__':
 	# target_dir = './data/26_река_Нахавня_(Одинцовские г.о.)'
@@ -558,7 +575,7 @@ if __name__ == '__main__':
 		# None
 	]
 
-	create_directive('directive_template.txt', 'directive.docx', substitution)
+	# create_directive('directive_template.txt', 'directive.docx', substitution)
 
 	filenames = [
 		'Приложение 1.xlsx',
@@ -567,13 +584,11 @@ if __name__ == '__main__':
 		'content.txt'
 	]
 
-	# test = scan_directory(target_dir, filenames)
+	appendix_template = 'appendix_template.txt'
+	appendix_content = read_textfile(appendix_template)
+	create_appendix_body(appendix_content, substitution, 1)
+	dir_content = scan_directory(target_dir, filenames)
+	for k, v in dir_content.items():
+		print(f'{k}:\t{v}')
 	# process_directory(test)
 	
-	# string = 'Hello{0}world{1}!{0}My{0}name{2}is{1}Dima{0}. I am fine.'
-	# substring = '{0}'
-	# substrings = ['{0}', '{1}', '{2}', '{3}']
-	# subs = find_all_substring_indices(string, substring)
-
-	# print(string, '\t', len(string))
-	# a = split_string(string, substrings)
