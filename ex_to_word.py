@@ -10,7 +10,7 @@ from docx.oxml.ns import qn
 from docx.shared import Cm, Pt
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.section import WD_SECTION
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX, WD_BREAK
 from docx.enum.table import WD_ALIGN_VERTICAL
 
 def create_xlsx_file_list(target_dir):
@@ -277,7 +277,12 @@ def add_table_new(document, data, koord_zone):
 	footer_section = document.add_section(WD_SECTION.CONTINUOUS)
 	sectPr = footer_section._sectPr
 	cols = sectPr.xpath('./w:cols')[0]
-	cols.set(qn('w:num'),'1')		
+	cols.set(qn('w:num'),'1')
+
+	p = document.add_paragraph()
+	r = p.add_run()
+	r.add_break(WD_BREAK.PAGE)
+
 	return document
 
 def scan_directory(target_dir, filenames):
@@ -557,12 +562,136 @@ def create_appendix_content(framework, substitution, appendix_number):
 		result.append(framework[i].format(substitution))
 	return result
 
+def set_appendix_styles(document):
+	text_style = document.styles.add_style(
+		'Appendix Text', WD_STYLE_TYPE.PARAGRAPH)
+	text_style.font.size = Pt(14)
+	text_style.font.name = 'Times New Roman'
+	text_style.next_paragraph_style = text_style
+	p_f = text_style.paragraph_format
+	p_f.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+	p_f.first_line_indent = Cm(1.25)
+	p_f.line_spacing = 1.15
+	p_f.space_before = Pt(0)
+	p_f.space_after = Pt(14)
 
+	number_style = document.styles.add_style(
+		'Appendix Document Number', WD_STYLE_TYPE.PARAGRAPH)
+	number_style.base_style = text_style
+	number_style.font.size = Pt(13)
+	p_f = number_style.paragraph_format
+	p_f.alignment = WD_ALIGN_PARAGRAPH.LEFT
+	p_f.first_line_indent = Cm(0)
+	p_f.left_indent = Cm(10.5)
+	
+	appendix_style = document.styles.add_style(
+		'Appendix Title', WD_STYLE_TYPE.PARAGRAPH)
+	appendix_style.base_style = number_style
+	p_f = appendix_style.paragraph_format
+	p_f.left_indent = Cm(11)
+	p_f.space_after = Pt(0)
+	
+	title_style = document.styles.add_style(
+		'Appendix Document Title', WD_STYLE_TYPE.PARAGRAPH)
+	title_style.base_style = text_style
+	title_style.font.bold = True
+	p_f = title_style.paragraph_format
+	p_f.alignment = WD_ALIGN_PARAGRAPH.CENTER
+	
+	return [appendix_style, number_style, title_style, text_style]
+
+def create_appendix_document(content):
 	document = Document()
 	set_page_properties(document)
-
-
+	[
+		appendix_title_style,
+		appendix_document_number_style,
+		appendix_document_title_style,
+		appendix_text_style
+	] = set_appendix_styles(document)
+	appendix_styles = [
+		appendix_title_style,
+		appendix_document_number_style,
+		appendix_document_title_style,
+		appendix_text_style
+	]
+	for c, s in zip(content, appendix_styles):
+		document.add_paragraph(c, style=s)
+	# p = document.add_paragraph(style=appendix_text_style)
+	# r = p.add_run()
+	# r.add_break(WD_BREAK.PAGE)
 	return document
+
+def add_appendix(document, content):
+	appendix_styles = [
+		document.styles['Appendix Title'],
+		document.styles['Appendix Document Number'],
+		document.styles['Appendix Document Title'],
+		document.styles['Appendix Text']
+	]
+	for c, s in zip(content, appendix_styles):
+		document.add_paragraph(c, style=s)
+	return document
+
+
+
+def write_docx_file(document, output_file):
+	try:
+
+
+		document.save(output_file)
+	except PermissionError:
+		print(f'<{output_file}> is busy - permission denied.')
+
+
+
+def process_directory_new(target_dir, filenames):
+	dir_content = scan_directory(target_dir, filenames)
+	appendix_content = read_textfile('appendix_template.txt')
+	appendix_framework = create_document_framework(
+		appendix_content,
+		[0, 5, 6, 9, 12, 15, 18, 19, 20, 21, 22],
+		['\n', '', '\n', '\n', '\n', '\n', '', '', '', '']
+	)
+
+	for k, v in dir_content.items():
+		print(f'{k}:\t{v}')
+		content_txt = read_textfile(join(target_dir, 'content.txt'))
+		formatted_content = [None for i in range(5)]
+		if content_txt:
+			for i, c in enumerate(content_txt):
+				formatted_content[i] = c.format(NBS=chr(160))
+		water_object_name = formatted_content[0]		
+		print(formatted_content)
+		xlsx_files = [f for f in v if splitext(f)[1] == '.xlsx']
+		xlsx_files.sort()
+		appendix_document = Document()
+		xlsx_data = []
+		koord_zone = []
+		appendix_numbers = []
+		for f in xlsx_files:
+			appendix_numbers.append(f[-6])
+			data = read_xlsx(join(target_dir, f))
+			xlsx_data.append(data)
+			koord_zone.append(data[1][4])
+		partial_data = [extract_columns(el[4:], [0, 4, 5]) for el in xlsx_data]
+		formatting = ['{:.0f}', '{:.2f}', '{:.2f}']
+		str_data = [convert_data_to_str(el, formatting) for el in partial_data]
+		if partial_data[1] == partial_data[2]:
+			appendix_numbers = ['1', '23']
+
+		document = Document()
+		set_page_properties(document)
+		set_appendix_styles(document)
+		for d, k_z, n in zip(str_data, koord_zone, appendix_numbers):
+			a_c = create_appendix_content(appendix_framework, water_object_name, n)
+			# a_d = create_appendix_document(a_c)
+			document = add_appendix(document, a_c)
+			document = add_table_new(document, d, k_z)
+
+		write_docx_file(document, join(k, 'All_Appendix.docx'))
+
+
 
 if __name__ == '__main__':
 	# target_dir = './data/26_река_Нахавня_(Одинцовские г.о.)'
@@ -606,12 +735,11 @@ if __name__ == '__main__':
 		[0, 5, 6, 9, 12, 15, 18, 19, 20, 21, 22],
 		['\n', '', '\n', '\n', '\n', '\n', '', '', '', '']
 	)
-	print(*create_appendix_content(appendix_framework, 'WaterObject', '23'), sep='\n---------------\n')
+	# print(*create_appendix_content(appendix_framework, 'WaterObject', '23'), sep='\n---------------\n')
 	# print(*appendix_framework, sep='\n---------------\n')
 
 	# create_appendix_body(appendix_content, substitution, 1)
-	dir_content = scan_directory(target_dir, filenames)
-	for k, v in dir_content.items():
-		print(f'{k}:\t{v}')
+
 	# process_directory(test)
+	process_directory_new(target_dir, filenames)
 	
