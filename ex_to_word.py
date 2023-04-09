@@ -278,8 +278,12 @@ def add_table_new(document, data, koord_zone):
     cells[0].merge(cells[3])
     cells[1].merge(cells[2])
 
+    index = koord_zone.find(')', None)
+    if index:
+        koord_zone = koord_zone[:index+1]
+
     head = [
-        '№\nп/п',
+        'Обозначение характерных точек границ',
         koord_zone,
         'X',
         'Y',
@@ -294,7 +298,7 @@ def add_table_new(document, data, koord_zone):
         c.text = t
         c.paragraphs[0].paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
         c.paragraphs[0].style.font.name = 'Times New Roman'
-        c.paragraphs[0].style.font.size = Pt(12)
+        c.paragraphs[0].style.font.size = Pt(11)
         c.paragraphs[0].runs[0].bold = True
 
 
@@ -303,7 +307,7 @@ def add_table_new(document, data, koord_zone):
     table.rows[0].height = Cm(1.96)
 
     # table.allow_autofit = False
-    table.columns[0].width = Cm(2)
+    table.columns[0].width = Cm(4)
     for i, c in enumerate(cells[9:]):
         c.text = data[i//w][i%w]
         # p = c.paragraphs[0]
@@ -463,7 +467,8 @@ def set_directive_styles(document):
     title_style.font.bold = True
     p_f = title_style.paragraph_format
     p_f.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_f.line_spacing = 1
+    p_f.line_spacing = 1.15
+    p_f.first_line_indent = Cm(0)
     p_f.space_before = Pt(238)
     p_f.space_after = Pt(42)
 
@@ -705,13 +710,13 @@ def set_appendix_styles(document):
     p_f = number_style.paragraph_format
     p_f.alignment = WD_ALIGN_PARAGRAPH.LEFT
     p_f.first_line_indent = Cm(0)
-    p_f.left_indent = Cm(10.5)
+    p_f.left_indent = Cm(11)
     
     appendix_style = document.styles.add_style(
         'Appendix Title', WD_STYLE_TYPE.PARAGRAPH)
     appendix_style.base_style = number_style
     p_f = appendix_style.paragraph_format
-    p_f.left_indent = Cm(11)
+    # p_f.left_indent = Cm(11)
     p_f.space_after = Pt(0)
     
     title_style = document.styles.add_style(
@@ -720,6 +725,7 @@ def set_appendix_styles(document):
     title_style.font.bold = True
     p_f = title_style.paragraph_format
     p_f.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_f.first_line_indent = Cm(0)
     
     return [appendix_style, number_style, title_style, text_style]
 
@@ -876,6 +882,9 @@ def process_directory_new(target_dir, filenames):
         t_f = round((perf_counter() - t_s)*1e3, 3)
         print(f'Processing <{k}> done in {t_f} ms.')
 
+    processed_dirs = list(dir_content.keys())
+    processed_dirs.sort()
+    print('Processed directories:', *processed_dirs, sep='\n')
 
 if __name__ == '__main__':
     # target_dir = './data/26_река_Нахавня_(Одинцовские г.о.)'
