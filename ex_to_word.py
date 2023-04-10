@@ -70,71 +70,14 @@ def read_xlsx(filename):
 def extract_columns(data, columns):
     return [[row[el] for el in columns] for row in data] 
 
-def write_data_new(data, columns, filename):
-    data_to_write = []
-    for row in data:
-        data_to_write.append([row[i] for i in columns])
-
-    document = Document()
-    table = document.add_table(rows=len(data), cols=len(columns))
-    table.style = 'Table Grid'
-    table.allow_autofit = False
-    for col in table.columns:
-        col.width = Cm(2.5)
-    for i, (row_read, row_write) in enumerate(zip(data_to_write, table.rows)):
-        time_start = perf_counter()
-        for el, cell in zip(row_read, row_write.cells):
-            cell.text = str(el)
-        print(f'Row {i+1}:\t{round((perf_counter() - time_start)*1000, 3)}\tms')
-    document.add_paragraph()
-    document.save(filename)
-
-def write_data(data, columns, filename):
-    document = Document()
-    indent_style = document.styles.add_style('Indent', WD_STYLE_TYPE.PARAGRAPH)
-    indent_style.paragraph_format.left_indent = Cm(10)
-    par1 = document.add_paragraph('Приложение 2\nк распоряжению\nМинистерства экологии\nи природопользования\nМосковской области\n№______ от _____________', style=indent_style)
-    par1.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-    # document.sections[0].left_margin = Cm(10)
-
-    par2 = document.add_paragraph()
-    par2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    par2.add_run('Границы водоохранной зоны, прибрежной защитной полосы\nручья без названия в Сергиево-Посадском городском округе Московской области').bold = True
-    par3 = document.add_paragraph()
-    par3.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-    par3.add_run('Координаты границ водоохранной зоны, прибрежной защитной полосы ручья без названия в Сергиево-Посадском городском округе\nМосковской области.')
-    table_section = document.add_section(WD_SECTION.CONTINUOUS)
-    sectPr = table_section._sectPr
-    cols = sectPr.xpath('./w:cols')[0]
-    cols.set(qn('w:num'),'2')
-    table = document.add_table(rows=0, cols=len(columns), style='Table Grid')
-    table.allow_autofit = False
-    table.columns[0].width = Cm(1.5)
-    for col in list(table.columns)[1:]:
-        col.width = Cm(2.5)
-    for i, row in enumerate(data):
-        time_start = perf_counter()
-        row_cells = table.add_row().cells
-        input_cells = [row[i] for i in columns]
-        # print(input_cells)
-        for c_in, c_out in zip(input_cells, row_cells):
-            c_out.text = str(c_in)
-            # c_out.style = my_style
-        # print(f'Row {i+1}:\t{round((perf_counter() - time_start)*1000, 3)}\tms')
-    last_section = document.add_section(WD_SECTION.CONTINUOUS)
-    sectPr = last_section._sectPr
-    cols = sectPr.xpath('./w:cols')[0]
-    cols.set(qn('w:num'),'1')
-    document.save(filename)
-
-def write_txt_file(data, filename, sep):
-    try:
-        with open(filename, 'w') as f:
-            for row in data:
-                str_data = ['{:.2f}'.format(el).replace('.', ',') for el in row if type(el) != str]
-                f.write(f"{sep.join(str_data)}\n")
-    except IOError:
-        print(f'I/O error with <{filename}>.')
+# def write_txt_file(data, filename, sep):
+#     try:
+#         with open(filename, 'w') as f:
+#             for row in data:
+#                 str_data = ['{:.2f}'.format(el).replace('.', ',') for el in row if type(el) != str]
+#                 f.write(f"{sep.join(str_data)}\n")
+#     except IOError:
+#         print(f'I/O error with <{filename}>.')
 
 def change_ext(filename, new_ext):
     name, ext = splitext(filename)
@@ -146,119 +89,6 @@ def convert_data_to_str(data, formatting):
         [f.format(r).replace('.', ',') if type(r) != str else r for r, f in 
         zip(row, formatting)] for row in data
     ]
-
-def create_docx_document(content):
-    document = Document()
-
-    header = document.sections[0]
-    header.page_width = Cm(21)
-    header.page_height = Cm(29.7)
-    header.left_margin = Cm(3)
-    header.right_margin = Cm(1.5)
-    header.top_margin = Cm(2)
-    header.bottom_margin = Cm(2)
-    appendix_style = document.styles.add_style('Appendix Title', WD_STYLE_TYPE.PARAGRAPH)
-    appendix_style.paragraph_format.left_indent = Cm(11)
-    number_style = document.styles.add_style('Document Number', WD_STYLE_TYPE.PARAGRAPH)
-    number_style.paragraph_format.left_indent = Cm(10.5)
-    title_style = document.styles.add_style('Document Title', WD_STYLE_TYPE.PARAGRAPH)
-    subtitle_style = document.styles.add_style('Document Subtitle', WD_STYLE_TYPE.PARAGRAPH)
-    subtitle_style.paragraph_format.first_line_indent = Cm(1.25)
-
-    styles = [
-        appendix_style,
-        number_style,
-        title_style,
-        subtitle_style
-    ]
-    alignments = [
-        WD_ALIGN_PARAGRAPH.LEFT,
-        WD_ALIGN_PARAGRAPH.LEFT,
-        WD_ALIGN_PARAGRAPH.CENTER,
-        WD_ALIGN_PARAGRAPH.JUSTIFY
-    ]
-
-    for s, a, c in zip(styles, alignments, content):
-        s.font.name = 'Times New Roman'
-        s.font.size = Pt(13)
-        s.paragraph_format.line_spacing = 1.06
-        # s.paragraph_format.space_after = s.font.size
-        s.paragraph_format.space_after = Pt(0)
-        p = document.add_paragraph(style=s)
-        p.alignment = a
-        p.add_run(c)
-
-    title_style.paragraph_format.space_before = Pt(14)
-    title_style.font.size = Pt(14)
-    title_style.paragraph_format.space_after = Pt(14)
-    subtitle_style.paragraph_format.space_after = Pt(14)
-    subtitle_style.font.size = Pt(14)
-
-
-    # appendix_style.font.size = Pt(13)
-    # appendix_style.paragraph_format.line_spacing = 1.08
-    document.paragraphs[2].runs[0].bold = True
-
-    return document
-
-def add_table_title(table, koord_zone):
-    first_row_cells = table.add_row().cells
-    for c in first_row_cells:
-        c.paragraphs[0].style.font.name = 'Times New Roman'
-        c.paragraphs[0].style.font.size = Pt(12)
-
-    for i in range(2):
-        table.add_row()
-
-
-    cells = ((0, 0), (0, 1), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2))
-
-    text = [
-        '№\nп/п',
-        koord_zone,
-        'X',
-        'Y',
-        '(1)',
-        '(2)',
-        '(3)'
-    ]
-
-    table.cell(0,0).merge(table.cell(1,0))
-    table.cell(0,1).merge(table.cell(0,2))
-    
-
-    table.cell(0,0).vertical_alignment = WD_ALIGN_VERTICAL.CENTER
-    table.cell(0,1).vertical_alignment = WD_ALIGN_VERTICAL.CENTER
-    table.rows[0].height = Cm(1.96)
-
-    for c, t in zip(cells, text):
-        table.cell(*c).text = t
-        table.cell(*c).paragraphs[0].paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        table.cell(*c).paragraphs[0].runs[0].bold = True
-
-    return table
-
-def add_table(document, data, koord_zone):
-    table_section = document.add_section(WD_SECTION.CONTINUOUS)
-    sectPr = table_section._sectPr #table_section._sectPr
-    cols = sectPr.xpath('./w:cols')[0]
-    cols.set(qn('w:num'),'2')
-
-    table = document.add_table(rows=0, cols=len(data[0]), style='Table Grid')
-    table = add_table_title(table, koord_zone)
-    table.allow_autofit = False
-    table.columns[0].width = Cm(2)
-    for row in data:
-        cells = table.add_row().cells
-        for c, r in zip(cells, row):
-            c.text = r
-            c.paragraphs[0].paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-    footer_section = document.add_section(WD_SECTION.CONTINUOUS)
-    sectPr = footer_section._sectPr
-    cols = sectPr.xpath('./w:cols')[0]
-    cols.set(qn('w:num'),'1')       
-    return document
 
 def add_table_new(document, data, koord_zone):
     table_section = document.add_section(WD_SECTION.CONTINUOUS)
@@ -352,92 +182,6 @@ def read_textfile(filename):
         print(f'I/O error with <{filename}>.')
         return None 
 
-def process_directory(dir_dict):
-    target_dir = list(dir_dict.keys())[0]
-    print(f'List of files in <{target_dir}> :')
-    list_of_files = list(dir_dict.values())[0]
-    for i, f in enumerate(list_of_files, 1):
-        print(f'{i}\t{f}')
-    if 'content.txt' in list_of_files:
-        content_txt = read_textfile(join(target_dir, 'content.txt'))
-    xlsx_files = [f for f in list_of_files if splitext(f)[1] == '.xlsx']
-    xlsx_files.sort()
-    xlsx_data = []
-    koord_zone = []
-    for f in xlsx_files:
-        time_start = perf_counter()
-        print(f'Start reading <{f}>.')
-        data = read_xlsx(join(target_dir, f))
-        xlsx_data.append(data)
-        koord_zone.append(data[1][4])
-        print(f'{len(data)} rows has been read in {round((perf_counter() - time_start)*1e3, 3)} ms.')
-    partial_data = [extract_columns(el[4:], [0, 4, 5]) for el in xlsx_data]
-    if partial_data[1] == partial_data[2]:
-        print('\nWARNING: appendix 2 equals to appendix 3!\n')
-        try:
-            with open(join(target_dir, '!App2_equal_App3'), 'w') as f:
-                f.write('')
-        except IOError:
-            print('Cannot create <!App2_equal_App3>.')
-    formatting = ['{:.0f}', '{:.2f}', '{:.2f}']
-    str_data = [convert_data_to_str(el, formatting) for el in partial_data]
-    print('Start creating txt files.')
-    for f, d in zip(xlsx_files, str_data):
-        time_start = perf_counter()
-        new_filename = change_ext(f, 'txt')
-        write_txtfile(extract_columns(d, [1, 2]), join(target_dir, new_filename), '\t')
-        print(f'<{new_filename}> has been created in {round((perf_counter() - time_start)*1e3, 3)} ms.')
-    print('Start creating docx files.')
-    content = [
-        '\n'.join([
-            'Приложение {}',
-            'к распоряжению',
-            'Министерства экологии',
-            'и природопользования',
-            'Московской области'
-        ]),
-        '№______ от _____________',
-        '\n'.join([
-            'Местоположение береговой линии (границы водного объекта)',
-            '{}'
-        ]),
-        '\n'.join([
-            'Границы водоохранной зоны',
-            '{}'
-        ]),
-        '\n'.join([
-            'Границы прибрежной защитной полосы',
-            '{}'
-        ]),
-        'Координаты местоположения береговой линии (границы водного объекта) {}.',
-        'Координаты границ водоохранной зоны {}.',
-        'Координаты прибрежной защитной полосы {}.'
-    ]
-
-    for f, d, k_z in zip(xlsx_files, str_data, koord_zone):
-        time_start = perf_counter()
-        appendix_number = f[-6]
-        insert_content = None
-        if appendix_number == '1':
-            insert_content = [content[el] for el in [0, 1, 2, 5]]
-        elif appendix_number == '2':
-            insert_content = [content[el] for el in [0, 1, 3, 6]]
-        elif appendix_number == '3':
-            insert_content = [content[el] for el in [0, 1, 4, 7]]
-        
-        insert_content[0] = insert_content[0].format(appendix_number)
-        insert_content[2] = insert_content[2].format('\n'.join(content_txt))
-        insert_content[3] = insert_content[3].format(' '.join(content_txt))
-
-        new_filename = change_ext(f, 'docx')
-        document = create_docx_document(insert_content)
-        document = add_table_new(document, d, k_z)
-        try:
-            document.save(join(target_dir, new_filename))
-            print(f'<{new_filename}> has been created in {round((perf_counter() - time_start)*1e3, 3)} ms.')
-        except PermissionError:
-            print(f'<{new_filename}> is busy - permission denied.')
-
 def set_page_properties(document):
     header = document.sections[0]
     header.page_width = Cm(21)
@@ -496,66 +240,6 @@ def create_position_table(document, data, styles):
         c.vertical_alignment = WD_ALIGN_VERTICAL.BOTTOM
         c.paragraphs[0].style = s
 
-def create_directive(directive_template, output_file, substitution):
-    document = Document()
-    set_page_properties(document)
-    
-    [
-        title_style, main_style,
-        position_style, name_style
-    ] = set_directive_styles(document)
-
-    water_object = substitution[0]
-    district_name = substitution[1]
-    appendix_number = substitution[2]
-    water_object_length = substitution[3]
-    water_protection_zone = substitution[4]
-    protected_shoreline_belt = substitution[5]
-
-    subst_templ = {
-        '{WO}': water_object,
-        '{DN}': district_name,
-        '{AN}': appendix_number,
-        '{WOL}': water_object_length,
-        '{WPZ}': water_protection_zone,
-        '{PSB}': protected_shoreline_belt
-    }
-
-    data = read_textfile(directive_template)
-    if data:
-        for line in data[:-4]:
-            p = document.add_paragraph(style=main_style)
-            subline = split_string(line, subst_templ)
-            for s in subline:
-                 if s in subst_templ:
-                    text = subst_templ[s]
-                    if text:
-                        p.add_run(text)
-                    else:
-                        r = p.add_run(s)
-                        r.font.highlight_color = WD_COLOR_INDEX.RED
-                 else:
-                    p.add_run(s.format(NBS=chr(160)))
-
-        document.paragraphs[0].style = title_style
-        for i in range(3):
-            document.add_paragraph(style=main_style)
-        
-        position = '\n'.join(data[-4:-1])
-        name = data[-1]
-
-        create_position_table(
-            document, [position, name],
-            [position_style, name_style])
-        
-        try:
-            document.save(output_file)
-        except PermissionError:
-            print(f'<{output_file}> is busy - permission denied.')
-        
-    else:
-        print(f'<{directive_template}> is empty.')
-
 def find_all_substring_indices(string, substring):
     i = 0
     result = []
@@ -606,7 +290,6 @@ def create_directive_text(directive_template, appendixes_2_and_3_are_equal):
         result += enumerate_part_of_directive(i, p)
     result += directive_template[-4:]
     return result
-
 
 def create_directive_new(directive_template, substitution):
     document = Document()
@@ -729,28 +412,6 @@ def set_appendix_styles(document):
     
     return [appendix_style, number_style, title_style, text_style]
 
-def create_appendix_document(content):
-    document = Document()
-    set_page_properties(document)
-    [
-        appendix_title_style,
-        appendix_document_number_style,
-        appendix_document_title_style,
-        appendix_text_style
-    ] = set_appendix_styles(document)
-    appendix_styles = [
-        appendix_title_style,
-        appendix_document_number_style,
-        appendix_document_title_style,
-        appendix_text_style
-    ]
-    for c, s in zip(content, appendix_styles):
-        document.add_paragraph(c, style=s)
-    # p = document.add_paragraph(style=appendix_text_style)
-    # r = p.add_run()
-    # r.add_break(WD_BREAK.PAGE)
-    return document
-
 def add_appendix(document, content):
     appendix_styles = [
         document.styles['Appendix Title'],
@@ -764,13 +425,11 @@ def add_appendix(document, content):
     return document
 
 
-
 def write_docx_file(document, output_file):
     try:
         document.save(output_file)
     except PermissionError:
         print(f'<{output_file}> is busy - permission denied.')
-
 
 
 def process_directory_new(target_dir, filenames):
@@ -907,18 +566,6 @@ if __name__ == '__main__':
     # target_dir ='./data/Проекты распоряжений/Лотошинский район/299 река Черная test'
     # target_dir ='./data/Проекты распоряжений/Лотошинский район/299 река Черная'
     # target_dir ='./data/Проекты распоряжений/Лотошинский район/865 река Безымянная'
-
-    # substitution = [
-    #     'реки Плесенки в{}Наро-Фоминском городском округе'.format(chr(160)),
-    #     'Наро-Фоминского городского округа',
-    #     '3',
-    #     '35,51',
-    #     '100',
-    #     '40'
-    #     # None
-    # ]
-
-
 
     # filenames = [
     #     'Приложение 1.xlsx',
