@@ -13,6 +13,8 @@ from docx.enum.section import WD_SECTION
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX, WD_BREAK
 from docx.enum.table import WD_ALIGN_VERTICAL
 
+from directive import Directive
+
 def create_element(name):
     return OxmlElement(name)
 
@@ -584,7 +586,8 @@ if __name__ == '__main__':
 
     time_start = perf_counter()
     print(f'Processing <{target_dir}>...')
-    process_directory_new(target_dir, filenames)
+    # process_directory_new(target_dir, filenames)
+    direct = Directive()
     time_finish = round((perf_counter() - time_start)*1e3, 3)
     print(f'Processing <{target_dir}> done in {time_finish} ms.')
     
