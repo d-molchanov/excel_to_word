@@ -1,5 +1,5 @@
 from os import walk
-from os.path import abspath, splitext, join
+from os.path import abspath, relpath, splitext, join, basename
 
 from time import perf_counter
 
@@ -14,6 +14,20 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX, WD_BREAK
 from docx.enum.table import WD_ALIGN_VERTICAL
 
 from directive import Directive
+
+def timeit(operation):
+    def decorator(method):
+        # def wrapped(filename):
+        def wrapped(*args, **kwargs):
+            base_name = basename(kwargs['_path'])
+            print(f'{operation} <{base_name}>...\r')
+            time_start = perf_counter()
+            result = method(*args, **kwargs)
+            time_finish = (perf_counter() - time_start)*1e3
+            print(f'{operation} <{base_name}> done in {time_finish:.3f} ms.')
+            return result
+        return wrapped
+    return decorator
 
 def create_element(name):
     return OxmlElement(name)
@@ -47,39 +61,16 @@ def create_xlsx_file_list(target_dir):
                 result.append(ap_file)
     return result
 
-
-def read_xlsx(filename):
-    wb = openpyxl.load_workbook(filename)
+@timeit('Reading')
+def read_xlsx(_path):
+    wb = openpyxl.load_workbook(_path)
     sheet = wb.active
     rows = sheet.rows
-    # for i in range(10):
-    #     next(rows)
-    # temp = [cell.value for cell in next(rows)]
-    # print(temp)
-    # pattern = [None for el in temp]
-    # data = []
-    # i = 1
-    # while temp != pattern or i < 11:
-        # data.append(temp)
-        # temp = [cell.value for cell in next(rows)]
-        # i += 1
-        # print(temp, end='\r')
     data = [[cell.value for cell in row] for row in sheet.rows]
-    # print(len(data))
-    # return data
     return [row for row in data if row != [None for el in row]]
 
 def extract_columns(data, columns):
     return [[row[el] for el in columns] for row in data] 
-
-# def write_txt_file(data, filename, sep):
-#     try:
-#         with open(filename, 'w') as f:
-#             for row in data:
-#                 str_data = ['{:.2f}'.format(el).replace('.', ',') for el in row if type(el) != str]
-#                 f.write(f"{sep.join(str_data)}\n")
-#     except IOError:
-#         print(f'I/O error with <{filename}>.')
 
 def change_ext(filename, new_ext):
     name, ext = splitext(filename)
@@ -168,20 +159,22 @@ def scan_directory(target_dir, filenames):
     # print(result)
     return result
 
-def write_txtfile(data, filename, sep):
+@timeit('Writing')
+def write_txtfile(data, sep, _path):
     try:
-        with open(filename, 'w') as f:
+        with open(_path, 'w') as f:
             for row in data:
                 f.write(f"{sep.join(row)}\n")
     except IOError:
-        print(f'I/O error with <{filename}>.')
+        print(f'I/O error with <{_path}>.')
 
-def read_textfile(filename):
+@timeit('Reading')
+def read_textfile(_path):
     try:
-        with open(filename, 'r', encoding='utf-8') as f:
+        with open(_path, 'r', encoding='utf-8') as f:
             return [line.rstrip() for line in f.readlines()]
     except IOError:
-        print(f'I/O error with <{filename}>.')
+        print(f'I/O error with <{_path}>.')
         return None 
 
 def set_page_properties(document):
@@ -242,31 +235,31 @@ def create_position_table(document, data, styles):
         c.vertical_alignment = WD_ALIGN_VERTICAL.BOTTOM
         c.paragraphs[0].style = s
 
-def find_all_substring_indices(string, substring):
-    i = 0
-    result = []
-    while True:
-        i = string.find(substring, i)
-        if i == -1:
-            break
-        result.append(i)
-        i+=len(substring)
-        result.append(i)
-    return result
+# def find_all_substring_indices(string, substring):
+#     i = 0
+#     result = []
+#     while True:
+#         i = string.find(substring, i)
+#         if i == -1:
+#             break
+#         result.append(i)
+#         i+=len(substring)
+#         result.append(i)
+#     return result
 
-# !Check this method
-def split_string(string, substrings):
-    indices = [0]
-    for s in substrings:
-        indices += find_all_substring_indices(string, s)
-    indices.sort()
-    if indices[-1] != len(string) - 1:
-        # indices.append(len(string) - 1)
-        indices.append(len(string))
-    result = []
-    for i, j in zip(indices[1:], indices[:-1]):
-        result.append(string[j:i])
-    return result
+# # !Check this method
+# def split_string(string, substrings):
+#     indices = [0]
+#     for s in substrings:
+#         indices += find_all_substring_indices(string, s)
+#     indices.sort()
+#     if indices[-1] != len(string) - 1:
+#         # indices.append(len(string) - 1)
+#         indices.append(len(string))
+#     result = []
+#     for i, j in zip(indices[1:], indices[:-1]):
+#         result.append(string[j:i])
+#     return result
 
 def enumerate_part_of_directive(part_number, part_of_directive):
     result = [f'{part_number}. {part_of_directive[0]}']
@@ -356,7 +349,7 @@ def create_document_framework(template_data, indices, separators):
         result.append(s.join(template_data[i:j]))
     return result
 
-def create_appendix_content(framework, substitution, appendix_number):
+def create_appendix_content(framework, appendix_number):
     indices = []
     if appendix_number == '1':
         indices += [2, 6]
@@ -368,11 +361,11 @@ def create_appendix_content(framework, substitution, appendix_number):
         indices += [5, 9]
         appendix_number = '2'
     result = [
-        framework[0].format(appendix_number),
+        framework[0].format(AN=appendix_number),
         framework[1]
     ]
     for i in indices:
-        result.append(framework[i].format(substitution))
+        result.append(framework[i])
     return result
 
 def set_appendix_styles(document):
@@ -434,7 +427,7 @@ def write_docx_file(document, output_file):
         print(f'<{output_file}> is busy - permission denied.')
 
 
-def process_directory_new(target_dir, filenames):
+def process_directory(target_dir, filenames):
     dir_content = scan_directory(target_dir, filenames)
     appendix_content = read_textfile('appendix_template.txt')
     appendix_framework = create_document_framework(
@@ -547,6 +540,105 @@ def process_directory_new(target_dir, filenames):
     processed_dirs.sort()
     print('Processed directories:', *processed_dirs, sep='\n')
 
+def process_waterbody(target_dir, filenames, directive_template, appendix_framework):
+    print(f'Start processing <.{relpath(target_dir, ".")}>:')
+    t_s = perf_counter()
+
+    content_txt = read_textfile(_path=join(target_dir, 'content.txt'))
+    subst_keys = ['WBN', 'DN', 'WBL', 'WPZ', 'PSB']
+    substitution = {k:f'{{{k}}}' for k in subst_keys}
+    if content_txt:
+        # for k, c in zip(subst_keys[1:], content_txt[1:]):
+        for k, c in zip(subst_keys, content_txt):
+            substitution[k] = c
+
+    waterbody_name = substitution['WBN']
+
+    xlsx_files = [f for f in filenames if splitext(f)[1] == '.xlsx']
+    xlsx_files.sort()
+    appendix_document = Document()
+    xlsx_data = []
+    coordinates_title = []
+    appendix_numbers = []
+    for i, f in enumerate(xlsx_files, 1):
+        appendix_numbers.append(str(i))
+        data = read_xlsx(_path=join(target_dir, f))
+        xlsx_data.append(data)
+        coordinates_title.append(data[2][1])
+    coordinates = [extract_columns(el[5:], [0, 1, 2]) for el in xlsx_data]
+    formatting = ['{:.0f}', '{:.2f}', '{:.2f}']
+    str_coordinates = [convert_data_to_str(el, formatting) for el in coordinates]
+
+    for f, d in zip(xlsx_files, str_coordinates):
+        new_filename = change_ext(f, 'txt')
+        write_txtfile(extract_columns(d, [1, 2]), _path=join(target_dir, new_filename), sep='\t')
+
+
+    appendixes_2_and_3_are_equal = False
+    if coordinates[1] == coordinates[2]:
+        appendix_numbers = ['1', '23']
+        appendixes_2_and_3_are_equal = True
+    
+    directive_text = create_directive_text(directive_template, appendixes_2_and_3_are_equal)
+    directive = Directive()
+    doc = directive._create_directive(directive_text, substitution)
+    directive._set_page_properties(doc)
+    
+#     print('Creating directive...', end='\r')
+#     time_start = perf_counter()
+#     document = create_directive_new(directive_text, formatted_content)
+#     time_finish = round((perf_counter() - time_start)*1e3, 3)
+#     print(f'Reading directive done in {time_finish} ms.')
+
+
+#     set_appendix_styles(document)
+    for c, c_t, n in zip(str_coordinates, coordinates_title, appendix_numbers):
+        a_c = create_appendix_content(appendix_framework, n)
+        doc = directive._add_appendix(doc, a_c, substitution)
+        doc = directive._add_table(doc, c, c_t)
+#         print(f'Creating appendix {n}...', end='\r')
+#         time_start = perf_counter()
+#         document = add_appendix(document, a_c)
+#         document = add_table_new(document, d, k_z)
+#         time_finish = round((perf_counter() - time_start)*1e3, 3)
+#         print(f'Creating appendix {n} done in {time_finish} ms.')
+    directive._create_right_numeration(doc)
+#     for s in document.sections:
+#         sectPr = s._sectPr
+#         pgNumType = OxmlElement('w:pgNumType')
+#         pgNumType.set(ns.qn('w:start'), "1")
+#         sectPr.append(pgNumType)
+
+#     output_file = 'All_Appendix.docx'
+#     print(f'Writing <{output_file}>...', end='\r')
+#     time_start = perf_counter()
+#     write_docx_file(document, join(k, output_file))
+#     time_finish = round((perf_counter() - time_start)*1e3, 3)
+#     print(f'Writing <{output_file}> done in {time_finish} ms.')
+
+#     t_f = round((perf_counter() - t_s)*1e3, 3)
+#     print(f'Processing <{k}> done in {t_f} ms.')
+    doc.save('Directive_Templ.docx')
+
+# processed_dirs = list(dir_content.keys())
+# processed_dirs.sort()
+# print('Processed directories:', *processed_dirs, sep='\n')
+
+def process_directory_new(target_dir, filenames):
+    dir_content = scan_directory(target_dir, filenames)
+
+    directive_template = read_textfile(_path='directive_template.txt')
+    appendix_content = read_textfile(_path='appendix_template.txt')
+    
+    appendix_framework = create_document_framework(
+        appendix_content,
+        [0, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+        ['\n', '', '', '', '', '', '', '', '', '']
+    )
+
+    for directory, files in dir_content.items():
+        process_waterbody(directory, files, directive_template, appendix_framework)
+
 if __name__ == '__main__':
     # target_dir = './data/26_река_Нахавня_(Одинцовские г.о.)'
     # target_dir = './data/10_ручей_без_названия_(г.о. Егорьевск)'
@@ -564,8 +656,8 @@ if __name__ == '__main__':
     # target_dir = './data/(2023_04_02)/49_река_Камариха_(г.о. Пушкинский, Дмитровский г.о.)'
     # target_dir = './data/(2023_04_02)/50_река_Вырка_(Орехово-Зуевский г.о.)'
 
-    target_dir ='./data/Проекты распоряжений'
-    # target_dir ='./data/Проекты распоряжений/Лотошинский район/299 река Черная test'
+    # target_dir ='./data/Проекты распоряжений'
+    target_dir ='./data/Проекты распоряжений/Лотошинский район/299 река Черная test'
     # target_dir ='./data/Проекты распоряжений/Лотошинский район/299 река Черная'
     # target_dir ='./data/Проекты распоряжений/Лотошинский район/865 река Безымянная'
 
@@ -586,8 +678,7 @@ if __name__ == '__main__':
 
     time_start = perf_counter()
     print(f'Processing <{target_dir}>...')
-    # process_directory_new(target_dir, filenames)
-    direct = Directive()
+    process_directory_new(target_dir, filenames)
     time_finish = round((perf_counter() - time_start)*1e3, 3)
     print(f'Processing <{target_dir}> done in {time_finish} ms.')
     
